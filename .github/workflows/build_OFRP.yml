@@ -113,37 +113,48 @@ jobs:
       run: |
         echo "BUILD_DATE=$(TZ=Asia/Makassar date +%Y%m%d)" >> $GITHUB_ENV
 
-    - name: Check if Recovery Exist
+    - name: Check rekopeler
       run: |
         cd ${GITHUB_WORKSPACE}/OrangeFox/fox_${{ github.event.inputs.MANIFEST_BRANCH }}
-        if [ -f out/target/product/${{ github.event.inputs.DEVICE_NAME }}/OrangeFox*.img ]; then
-            echo "MD5_IMG=$(md5sum out/target/product/${{ github.event.inputs.DEVICE_NAME }}/OrangeFox*.img | cut -d ' ' -f 1)" >> $GITHUB_ENV
+        
+        ls -al out/target/product/${{ github.event.inputs.DEVICE_NAME }}/target/product/${{ github.event.inputs.DEVICE_NAME }}/
+        
+        if [ -f "out/target/product/${{ github.event.inputs.DEVICE_NAME }}/target/product/${{ github.event.inputs.DEVICE_NAME }}/OrangeFox*.img" ]; then
+            echo "recovery image exists!"
+            _md5_img=$(cat out/target/product/${{ github.event.inputs.DEVICE_NAME }}/target/product/${{ github.event.inputs.DEVICE_NAME }}/OrangeFox*.img.md5)
         else
-            echo "Recovery out directory is empty."
-            exit 1
+            echo "recovery image doesnt exist!"
+            abort=y
         fi
         
-        if [ -f out/target/product/${{ github.event.inputs.DEVICE_NAME }}/OrangeFox*.zip ]; then
-            echo "MD5_ZIP=$(md5sum out/target/product/${{ github.event.inputs.DEVICE_NAME }}/OrangeFox*.zip | cut -d ' ' -f 1)" >> $GITHUB_ENV
+        if [ -f "out/target/product/${{ github.event.inputs.DEVICE_NAME }}/target/product/${{ github.event.inputs.DEVICE_NAME }}/OrangeFox*.zip" ]; then
+            echo "zip file exists!"
+            _md5_zip=$(cat out/target/product/${{ github.event.inputs.DEVICE_NAME }}/target/product/${{ github.event.inputs.DEVICE_NAME }}/OrangeFox*.zip.md5)
         else
-            echo "Recovery out directory is empty."
-            exit 1
+            echo "zip file doesnt exist!"
+            abort=y
         fi
+        [ "$abort" == "y" ] && exit 1
+
+        (
+        echo "MD5_ZIP=$_md5_zip"
+        echo "MD5_IMG=$_md5_img"
+        ) >> $GITHUB_ENV
 
     - name: Upload to Release
       uses: softprops/action-gh-release@v2
       with:
         files: |
-          OrangeFox/fox_${{ github.event.inputs.MANIFEST_BRANCH }}/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/OrangeFox*.img
-          OrangeFox/fox_${{ github.event.inputs.MANIFEST_BRANCH }}/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/OrangeFox*.zip
-        name: Unofficial OrangeFox for ${{ github.event.inputs.DEVICE_NAME }} // ${{ env.BUILD_DATE }}
+          OrangeFox/fox_${{ github.event.inputs.MANIFEST_BRANCH }}/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/target/product/${{ github.event.inputs.DEVICE_NAME }}/OrangeFox*.zip
+          OrangeFox/fox_${{ github.event.inputs.MANIFEST_BRANCH }}/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/target/product/${{ github.event.inputs.DEVICE_NAME }}/OrangeFox*.img
+        name: Unofficial OFRP for ${{ github.event.inputs.DEVICE_NAME }} // ${{ env.BUILD_DATE }}
         tag_name: ${{ github.run_id }}
         body: |
-          Build: ${{ github.event.inputs.MANIFEST_BRANCH }}
-          Device: [Device Tree/Branch](${{ github.event.inputs.DEVICE_TREE }}/tree/${{ github.event.inputs.DEVICE_TREE_BRANCH }})
+          Manifest: fox_${{ github.event.inputs.MANIFEST_BRANCH }}
+          Device Tree: [Device Tree/Branch](${{ github.event.inputs.DEVICE_TREE }}/tree/${{ github.event.inputs.DEVICE_TREE_BRANCH }})
           Commit: Most recent [commit](${{ github.event.inputs.DEVICE_TREE }}/commit/${{ env.COMMIT_ID }}) during building.
-          MD5 (img): ${{ env.MD5_IMG }}
-          MD5 (zip): ${{ env.MD5_ZIP }}
+          MD5 (Image): ${{ env.MD5_IMG }}
+          MD5 (Zip): ${{ env.MD5_ZIP }}
           
     - name: Run LDCheck
       if: github.event.inputs.LDCHECK == 'true'
